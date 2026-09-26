@@ -31,10 +31,19 @@ function safeCues(cues: DocumentaryCue[]): DocumentaryCue[] {
   return cues.map(({ id, sourceCueIds, startMs, endMs, text, skip }) => ({ id, sourceCueIds, startMs, endMs, text, skip }));
 }
 function safeSettings(settings: DocumentarySettings): DocumentarySettings {
-  assertDocumentarySettings(settings);
+  // Migrate projects created by the first documentary-mode build. Only the new voice-profile
+  // fields receive defaults; missing/invalid legacy core settings still fail validation below.
+  const input = settings as Partial<DocumentarySettings>;
+  const normalized = {
+    ...settings,
+    voiceSource: input.voiceSource ?? 'prebuilt',
+    voiceProfileName: input.voiceProfileName ?? '',
+    customVoiceId: input.customVoiceId ?? '',
+  } as DocumentarySettings;
+  assertDocumentarySettings(normalized);
   // Whitelist so exported JSON can never acquire an API key or arbitrary provider data.
   return Object.fromEntries(Object.keys(defaultDocumentarySettings()).map((key) =>
-    [key, settings[key as keyof DocumentarySettings]])) as unknown as DocumentarySettings;
+    [key, normalized[key as keyof DocumentarySettings]])) as unknown as DocumentarySettings;
 }
 function safeProject(value: any): DocumentaryProject {
   if (!value || value.version !== 1 || typeof value.id !== 'string' || !/^[a-f0-9-]{36}$/.test(value.id) ||
