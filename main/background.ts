@@ -41,6 +41,7 @@ import { setupParameterHandlers } from './helpers/ipcParameterHandlers';
 import { setupProofreadHandlers } from './helpers/ipcProofreadHandlers';
 import { setupSubtitleMergeHandlers } from './helpers/ipcSubtitleMergeHandlers';
 import { setupDubbingHandlers } from './helpers/ipcDubbingHandlers';
+import { setupDocumentaryHandlers, shutdownDocumentary } from './helpers/documentary/ipc';
 import { setupPipelineHandlers } from './helpers/ipcPipelineHandlers';
 import { setupVoiceCloneHandlers } from './helpers/ipcVoiceCloneHandlers';
 import { setupVideoDownloadHandlers } from './helpers/ipcVideoDownloadHandlers';
@@ -147,6 +148,7 @@ app.on('before-quit', (event) => {
     // 同步终止下载器子进程并清理 cookie 临时副本（否则子进程变孤儿继续下载）
     shutdownVideoDownloads();
     shutdownToolboxProcesses();
+    shutdownDocumentary();
     cancelProofreadWaveforms();
     void shutdownPythonRuntime().finally(() => {
       app.exit(0);
@@ -294,6 +296,7 @@ app.on('before-quit', (event) => {
   setupTaskManager();
   setupSubtitleMergeHandlers(mainWindow, rendererUrl);
   setupDubbingHandlers(mainWindow);
+  setupDocumentaryHandlers();
   setupPipelineHandlers(mainWindow);
   setupVoiceCloneHandlers(mainWindow);
   setupVideoDownloadHandlers(mainWindow);
