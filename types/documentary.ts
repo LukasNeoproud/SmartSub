@@ -10,7 +10,13 @@ export interface DocumentaryCue {
 
 export interface DocumentarySettings {
   model: string;
+  /** Google prebuilt voice retained when switching between prebuilt/designed modes. */
   voice: string;
+  voiceSource: 'prebuilt' | 'custom';
+  /** Local label only. It is never sent to Google and does not affect synthesis cache keys. */
+  voiceProfileName: string;
+  /** Persistent Voice Design ID copied from AI Studio, for example voice_abc123. */
+  customVoiceId: string;
   style: string;
   language: string;
   /** Applied once, locally, to every clip; never inferred from subtitle end. */
@@ -117,6 +123,9 @@ export function defaultDocumentarySettings(): DocumentarySettings {
   return {
     model: 'gemini-3.8-flash-tts',
     voice: 'Charon',
+    voiceSource: 'prebuilt',
+    voiceProfileName: '',
+    customVoiceId: '',
     style: DOCUMENTARY_PRESETS[0].style,
     language: 'cs-CZ',
     speed: 1,
@@ -136,8 +145,13 @@ export function assertDocumentarySettings(
   value: unknown,
 ): asserts value is DocumentarySettings {
   const s = value as DocumentarySettings | null;
+  const customVoiceValid = s?.voiceSource !== 'custom' ||
+    (typeof s.customVoiceId === 'string' && /^voice_[a-zA-Z0-9_-]{4,240}$/.test(s.customVoiceId));
   if (!s || !/^gemini-[a-zA-Z0-9.-]*tts[a-zA-Z0-9.-]*$/.test(s.model) ||
       typeof s.voice !== 'string' || !/^[a-zA-Z0-9_-]{1,120}$/.test(s.voice) ||
+      !['prebuilt', 'custom'].includes(s.voiceSource) ||
+      typeof s.voiceProfileName !== 'string' || s.voiceProfileName.length > 120 ||
+      typeof s.customVoiceId !== 'string' || s.customVoiceId.length > 246 || !customVoiceValid ||
       typeof s.style !== 'string' || s.style.length > 3000 ||
       typeof s.language !== 'string' || !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(s.language) ||
       !inRange(s.speed, 0.5, 2) || !inRange(s.duckDb, -60, 0) ||
@@ -146,6 +160,11 @@ export function assertDocumentarySettings(
       !['eac3', 'ac3', 'aac'].includes(s.codec)) {
     throw new Error('Invalid documentary voice or mix settings');
   }
+}
+
+export function effectiveDocumentaryVoice(settings: DocumentarySettings): string {
+  assertDocumentarySettings(settings);
+  return settings.voiceSource === 'custom' ? settings.customVoiceId : settings.voice;
 }
 
 export function assertDocumentaryCues(value: unknown): asserts value is DocumentaryCue[] {
