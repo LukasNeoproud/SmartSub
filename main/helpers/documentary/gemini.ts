@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import type { DocumentarySettings } from '../../../types/documentary';
-import { assertDocumentarySettings } from '../../../types/documentary';
+import { assertDocumentarySettings, effectiveDocumentaryVoice } from '../../../types/documentary';
 import { checkAbort, abortError } from './process';
 
 /** Reviewed against Google's speech-generation REST guide, 2026-09-26. */
@@ -12,6 +12,10 @@ export function geminiRequest(text: string, settings: DocumentarySettings): Reco
   const style = `Speak natural ${settings.language}. ${settings.style}`;
   // 3.8 separates style from verbatim text; older models use a combined prompt.
   const structured = /^gemini-3\.8-/.test(settings.model);
+  if (settings.voiceSource === 'custom' && !structured) {
+    throw new Error('Designed voice IDs require a Gemini 3.8 TTS model');
+  }
+  const voice = effectiveDocumentaryVoice(settings);
   return {
     contents: [{ role: 'user', parts: [structured
       ? { text, speech_metadata: { style } }
@@ -19,8 +23,8 @@ export function geminiRequest(text: string, settings: DocumentarySettings): Reco
     generationConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: { voiceConfig: structured
-        ? { voice: settings.voice }
-        : { prebuiltVoiceConfig: { voiceName: settings.voice } } },
+        ? { voice }
+        : { prebuiltVoiceConfig: { voiceName: voice } } },
     },
   };
 }
