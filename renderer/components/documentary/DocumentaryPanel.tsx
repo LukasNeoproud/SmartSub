@@ -219,11 +219,35 @@ export default function DocumentaryPanel() {
           <div className="grid gap-3 md:grid-cols-3">
             <label className="grid gap-1 text-sm">{t('preset')}<select className={selectClass} defaultValue="" onChange={(e) => {
               const preset = DOCUMENTARY_PRESETS.find((p) => p.id === e.target.value);
-              if (preset) { setDraft({ ...draft, settings: { ...draft.settings, voice: preset.voice, style: preset.style } }); setResult(null); }
+              if (preset) {
+                setDraft({ ...draft, settings: {
+                  ...draft.settings,
+                  ...(draft.settings.voiceSource === 'prebuilt' ? { voice: preset.voice } : {}),
+                  style: preset.style,
+                } });
+                setResult(null);
+              }
             }}><option value="">{t('custom')}</option>{DOCUMENTARY_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{t(`presetNames.${preset.id}`)}</option>)}</select></label>
-            <label className="grid gap-1 text-sm">{t('voiceName')}<select className={selectClass} value={draft.settings.voice} onChange={(e) => setting('voice', e.target.value)}>{DOCUMENTARY_VOICES.map((voice) => <option key={voice}>{voice}</option>)}</select></label>
+            <label className="grid gap-1 text-sm">{t('voiceSource')}<select className={selectClass} value={draft.settings.voiceSource}
+              onChange={(e) => setting('voiceSource', e.target.value as DocumentarySettings['voiceSource'])}>
+              <option value="prebuilt">{t('prebuiltVoice')}</option>
+              <option value="custom">{t('designedVoice')}</option>
+            </select></label>
             {numberSetting('speed', 0.5, 2, 0.01)}
           </div>
+          {draft.settings.voiceSource === 'prebuilt' ? <label className="grid gap-1 text-sm">{t('voiceName')}
+            <select className={selectClass} value={draft.settings.voice} onChange={(e) => setting('voice', e.target.value)}>
+              {DOCUMENTARY_VOICES.map((voice) => <option key={voice}>{voice}</option>)}
+            </select>
+          </label> : <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">{t('profileName')}
+              <Input maxLength={120} value={draft.settings.voiceProfileName} onChange={(e) => setting('voiceProfileName', e.target.value)} placeholder="Czech Documentary Male 1" />
+            </label>
+            <label className="grid gap-1 text-sm">{t('customVoiceId')}
+              <Input maxLength={246} value={draft.settings.customVoiceId} onChange={(e) => setting('customVoiceId', e.target.value.trim())} placeholder="voice_..." />
+            </label>
+          </div>}
+          {draft.settings.voiceSource === 'custom' && <p className="text-xs text-muted-foreground">{t('customVoiceHint')}</p>}
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm">{t('model')}<Input value={draft.settings.model} onChange={(e) => setting('model', e.target.value)} /></label>
             <label className="grid gap-1 text-sm">{t('language')}<Input value={draft.settings.language} onChange={(e) => setting('language', e.target.value)} /></label>
