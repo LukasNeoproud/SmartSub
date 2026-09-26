@@ -15,13 +15,19 @@ This implementation uses the **Google Gemini Developer API (AI Studio key)**, no
 
 The default is `gemini-3.8-flash-tts`. The adapter follows the [Google speech-generation REST guide](https://ai.google.dev/gemini-api/docs/generate-content/speech-generation): 3.8 uses verbatim text, `speech_metadata.style`, and `voiceConfig.voice`. Older 3.1/2.5 TTS model IDs use the legacy combined prompt and `prebuiltVoiceConfig`. Availability depends on the account/model. Live Google synthesis is deliberately not part of the tests.
 
+### Voice Design IDs from AI Studio
+
+Voice Design itself is intentionally **not** implemented in SmartSub. Create and iterate the voice separately in Google AI Studio, then choose **Designed voice ID** in the documentary mode and paste the persistent `voice_...` ID plus any local display name you want. The display name is project metadata only: it is not sent to Google and changing it does not invalidate cached synthesis. The TTS request sends only the selected designed voice ID.
+
+A designed voice is scoped to the Google project/account that created or can access it, so use an API key with access to that same voice. This branch only permits designed IDs with Gemini 3.8 TTS; legacy TTS model request shapes remain limited to prebuilt voices.
+
 ## Workflow
 
 1. Open a local video and choose its original audio stream. The source remains unchanged.
 2. Select an embedded Czech text subtitle track or import UTF-8 SRT, ASS/SSA or VTT. Bitmap PGS/VobSub tracks require an external text file; there is no OCR step. Existing Czech translations are used, so an LLM or Whisper is not required.
 3. **Load and group** proposes utterances. Grouping uses pauses, sentence boundaries and basic speaker markers; it is deliberately conservative. Caption formatting is removed. Sound-only bracketed/music cues are proposed as skipped. Inspect these decisions rather than treating grouping as semantic understanding.
 4. Review the list alongside the video. Edit text/start/end, merge adjacent cues, split at the text cursor with an explicit split time, or skip a cue. Source cue IDs and originals are retained. Undo/redo, regrouping and project save/export are available. Every cue edit clears approval. End times are review/grouping hints, not synthesis deadlines.
-5. Choose a voice preset or edit its voice/style. Four presets and 30 prebuilt voices are included. **Audition** uses cached audio; **Regenerate** forces only that cue's paid synthesis.
+5. Choose either a Google prebuilt voice or paste a `voice_...` Voice Design ID created in AI Studio. A local profile name can make the ID recognizable in the project. Voice/style presets continue to set the narration style; when a designed voice is active, choosing a style preset does not replace its ID. **Audition** uses cached audio; **Regenerate** forces only that cue's paid synthesis.
 6. Approve the reviewed cues, render a sample, and tune the global speed/mix. Then render the full video.
 
 Electron's embedded player may not preview every source codec/container. This does not trigger a transcode; use an external player to inspect an unsupported preview or the rendered sample. The subtitle review and FFmpeg export still operate on the original file.
@@ -30,7 +36,7 @@ Electron's embedded player may not preview every source codec/container. This do
 
 Each generated clip starts at the reviewed cue's start. There is no subtitle-slot fitting, per-cue speed guessing, sentence truncation or shifting of later cues. The same global `atempo` multiplier (0.5–2.0) is applied locally to every clip. Shorter clips naturally leave gaps. Overlapping speech is mixed at its original starts and reported after render, not silently moved. Diagnostic output is bounded to 10,000 overlap pairs. Inspect the highlighted cue and edit it or choose another global speed.
 
-Raw synthesis is cached by model, voice, style, language and exact text. Changing start times, speed, ducking or codec does not pay for synthesis again. Changed text regenerates only that content; a forced regeneration bypasses the raw cache. Cancellation/failure preserves completed cached synthesis and the project. The project can be reopened from the mode's recent-project list or exported JSON; it is not added to SmartSub's general task list or automation/MCP service in this version.
+Raw synthesis is cached by model, effective voice ID, style, language and exact text. Changing a designed voice's local profile name, start times, speed, ducking or codec does not pay for synthesis again. Changed text regenerates only that content; a forced regeneration bypasses the raw cache. Cancellation/failure preserves completed cached synthesis and the project. The project can be reopened from the mode's recent-project list or exported JSON; it is not added to SmartSub's general task list or automation/MCP service in this version.
 
 Projects and cache live under `<Electron userData>/documentary/{projects,cache}`. Project writes use a temporary file and rename, validate revisions and whitelist persisted fields. Simultaneous access from different windows is refused. Source size/mtime are checked before reuse. Save edits before leaving; the normal navigation/close guard protects unsaved work. The last in-memory edits are not autosaved on every keystroke.
 
