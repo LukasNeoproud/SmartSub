@@ -8,7 +8,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import {
   defaultDocumentarySettings, groupDocumentaryCues, mergeDocumentaryCues, splitDocumentaryCue,
   assertDocumentarySettings, assertDocumentaryCues, documentaryOverlaps, documentaryDuckGain,
-  duckIntervals, type DocumentaryCue, type DocumentaryProject,
+  duckIntervals, effectiveDocumentaryVoice, type DocumentaryCue, type DocumentaryProject,
 } from '../../types/documentary';
 import { geminiRequest, documentarySynthesisKey, decodeGeminiAudio, synthesizeGemini } from '../../main/helpers/documentary/gemini';
 import { mixDocumentaryPcm, writeDocumentaryNarration } from '../../main/helpers/documentary/audio';
@@ -56,8 +56,11 @@ test('manual merge and split preserve source IDs and require explicit valid boun
   assert.throws(() => splitDocumentaryCue(joined, 0, 0, 950, 'b'));
   assert.throws(() => splitDocumentaryCue(joined, 0, 5, 2200, 'b'));
 });
-test('settings/cue validation rejects invalid speed, times and duplicate IDs', () => {
+test('settings/cue validation rejects invalid speed, voice IDs, times and duplicate IDs', () => {
   assertDocumentarySettings(settings); assert.throws(() => assertDocumentarySettings({ ...settings, speed: NaN }));
+  const custom = { ...settings, voiceSource: 'custom' as const, voiceProfileName: 'CZ Documentary', customVoiceId: 'voice_test_1234' };
+  assertDocumentarySettings(custom); assert.equal(effectiveDocumentaryVoice(custom), 'voice_test_1234');
+  assert.throws(() => assertDocumentarySettings({ ...custom, customVoiceId: 'not-a-designed-voice' }));
   assert.throws(() => assertDocumentaryCues([cue('x', -1, 1, 'A')]));
   assert.throws(() => assertDocumentaryCues([cue('x', 0, 1, 'A'), cue('x', 1, 2, 'B')]));
 });
@@ -85,6 +88,12 @@ test('Gemini payload uses structured 3.8 and legacy voice contracts; cache ignor
   const key = documentarySynthesisKey('A', settings);
   assert.equal(key, documentarySynthesisKey('A', { ...settings, speed: 1.2, duckDb: -20 }));
   assert.notEqual(key, documentarySynthesisKey('A', { ...settings, voice: 'Kore' }));
+  const designed = { ...settings, voiceSource: 'custom' as const, voiceProfileName: 'Local label', customVoiceId: 'voice_test_1234' };
+  const designedRequest = geminiRequest('A', designed) as any;
+  assert.equal(designedRequest.generationConfig.speechConfig.voiceConfig.voice, 'voice_test_1234');
+  assert.equal(documentarySynthesisKey('A', designed), documentarySynthesisKey('A', { ...designed, voiceProfileName: 'Renamed locally' }));
+  assert.notEqual(documentarySynthesisKey('A', designed), documentarySynthesisKey('A', { ...designed, customVoiceId: 'voice_test_5678' }));
+  assert.throws(() => geminiRequest('A', { ...designed, model: 'gemini-2.5-pro-preview-tts' }));
   assert.notEqual(key, documentarySynthesisKey('B', settings));
   assert.throws(() => geminiRequest('á'.repeat(2001), settings));
 });
